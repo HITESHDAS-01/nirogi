@@ -5,9 +5,13 @@ import { loadProfile, type ProfileData } from "@/lib/profile-store";
 
 export default function EmergencyPage() {
   const [profile, setProfile] = useState<ProfileData | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setProfile(loadProfile());
+    loadProfile().then((p) => {
+      setProfile(p);
+      setLoading(false);
+    });
   }, []);
 
   const bloodGroup = profile?.blood_group || "—";
@@ -18,6 +22,22 @@ export default function EmergencyPage() {
   const contactPhone = profile?.emergency_contact_phone || "";
   const medicines = profile?.medicines?.filter((m) => m.medicine_name) || [];
   const conditions = profile?.conditions?.filter((c) => c.condition_name) || [];
+
+  if (loading) {
+    return (
+      <div className="max-w-lg mx-auto space-y-6">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 bg-gray-200 rounded w-1/2" />
+          <div className="bg-white rounded-2xl border-2 border-gray-200 p-6 space-y-4">
+            <div className="h-12 bg-gray-200 rounded w-1/3 mx-auto" />
+            <div className="h-6 bg-gray-200 rounded" />
+            <div className="h-6 bg-gray-200 rounded" />
+            <div className="h-6 bg-gray-200 rounded" />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-lg mx-auto space-y-6">

@@ -1,37 +1,41 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { loadProfile, updateProfile } from "@/lib/profile-store";
+import { loadProfile, saveProfile, defaultProfile } from "@/lib/profile-store";
 
 export default function HealthProfilePage() {
-  const [form, setForm] = useState({
-    height_cm: "",
-    weight_kg: "",
-    blood_group: "",
-    allergies: "",
-    emergency_contact_name: "",
-    emergency_contact_phone: "",
-  });
+  const [form, setForm] = useState(defaultProfile);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    const profile = loadProfile();
-    setForm({
-      height_cm: profile.height_cm,
-      weight_kg: profile.weight_kg,
-      blood_group: profile.blood_group,
-      allergies: profile.allergies,
-      emergency_contact_name: profile.emergency_contact_name,
-      emergency_contact_phone: profile.emergency_contact_phone,
+    loadProfile().then((p) => {
+      setForm(p);
+      setLoading(false);
     });
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    updateProfile(form);
+    setSaving(true);
+    await saveProfile(form);
+    setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
   };
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-xl border border-border p-6 max-w-2xl">
+        <div className="animate-pulse space-y-4">
+          <div className="h-6 bg-gray-200 rounded w-1/3" />
+          <div className="h-10 bg-gray-200 rounded" />
+          <div className="h-10 bg-gray-200 rounded" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <form
@@ -148,9 +152,10 @@ export default function HealthProfilePage() {
       <div className="mt-6 flex items-center gap-3">
         <button
           type="submit"
-          className="px-6 py-2 rounded-lg bg-primary text-white font-medium hover:bg-primary-light transition-colors"
+          disabled={saving}
+          className="px-6 py-2 rounded-lg bg-primary text-white font-medium hover:bg-primary-light transition-colors disabled:opacity-50"
         >
-          Save Changes
+          {saving ? "Saving..." : "Save Changes"}
         </button>
         {saved && (
           <span className="text-sm text-risk-green font-medium">Saved!</span>

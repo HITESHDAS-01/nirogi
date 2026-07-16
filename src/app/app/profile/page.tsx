@@ -1,33 +1,42 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { loadProfile, updateProfile } from "@/lib/profile-store";
+import { loadProfile, saveProfile, defaultProfile } from "@/lib/profile-store";
 
 export default function ProfilePage() {
-  const [form, setForm] = useState({
-    full_name: "",
-    dob: "",
-    gender: "",
-    language: "en",
-  });
+  const [form, setForm] = useState(defaultProfile);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    const profile = loadProfile();
-    setForm({
-      full_name: profile.full_name,
-      dob: profile.dob,
-      gender: profile.gender,
-      language: profile.language,
+    loadProfile().then((p) => {
+      setForm(p);
+      setLoading(false);
     });
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    updateProfile(form);
+    setSaving(true);
+    await saveProfile(form);
+    setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
   };
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-xl border border-border p-6 max-w-2xl">
+        <div className="animate-pulse space-y-4">
+          <div className="h-6 bg-gray-200 rounded w-1/3" />
+          <div className="h-10 bg-gray-200 rounded" />
+          <div className="h-10 bg-gray-200 rounded" />
+          <div className="h-10 bg-gray-200 rounded" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <form
@@ -103,9 +112,10 @@ export default function ProfilePage() {
       <div className="mt-6 flex items-center gap-3">
         <button
           type="submit"
-          className="px-6 py-2 rounded-lg bg-primary text-white font-medium hover:bg-primary-light transition-colors"
+          disabled={saving}
+          className="px-6 py-2 rounded-lg bg-primary text-white font-medium hover:bg-primary-light transition-colors disabled:opacity-50"
         >
-          Save Changes
+          {saving ? "Saving..." : "Save Changes"}
         </button>
         {saved && (
           <span className="text-sm text-risk-green font-medium">Saved!</span>

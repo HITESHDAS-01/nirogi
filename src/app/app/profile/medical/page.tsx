@@ -1,35 +1,55 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { loadProfile, updateProfile, type ProfileData } from "@/lib/profile-store";
+import { loadProfile, saveProfile, defaultProfile, type ProfileData } from "@/lib/profile-store";
 
 export default function MedicalProfilePage() {
-  const [conditions, setConditions] = useState<Record<string, string>[]>([]);
-  const [medicines, setMedicines] = useState<Record<string, string>[]>([]);
-  const [surgeries, setSurgeries] = useState<Record<string, string>[]>([]);
-  const [familyHistory, setFamilyHistory] = useState<Record<string, string>[]>(
-    []
-  );
+  const [conditions, setConditions] = useState<ProfileData["conditions"]>([]);
+  const [medicines, setMedicines] = useState<ProfileData["medicines"]>([]);
+  const [surgeries, setSurgeries] = useState<ProfileData["surgeries"]>([]);
+  const [familyHistory, setFamilyHistory] = useState<ProfileData["family_history"]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    const profile = loadProfile();
-    setConditions(profile.conditions);
-    setMedicines(profile.medicines);
-    setSurgeries(profile.surgeries);
-    setFamilyHistory(profile.family_history);
+    loadProfile().then((p) => {
+      setConditions(p.conditions);
+      setMedicines(p.medicines);
+      setSurgeries(p.surgeries);
+      setFamilyHistory(p.family_history);
+      setLoading(false);
+    });
   }, []);
 
-  const handleSave = () => {
-    updateProfile({
-      conditions: conditions as ProfileData["conditions"],
-      medicines: medicines as ProfileData["medicines"],
-      surgeries: surgeries as ProfileData["surgeries"],
-      family_history: familyHistory as ProfileData["family_history"],
+  const handleSave = async () => {
+    setSaving(true);
+    await saveProfile({
+      ...defaultProfile,
+      conditions,
+      medicines,
+      surgeries,
+      family_history: familyHistory,
     });
+    setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
   };
+
+  if (loading) {
+    return (
+      <div className="space-y-6 max-w-2xl">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="bg-white rounded-xl border border-border p-6">
+            <div className="animate-pulse space-y-3">
+              <div className="h-5 bg-gray-200 rounded w-1/4" />
+              <div className="h-10 bg-gray-200 rounded" />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-2xl">
@@ -216,9 +236,10 @@ export default function MedicalProfilePage() {
       <div className="flex items-center gap-3">
         <button
           onClick={handleSave}
-          className="px-6 py-2 rounded-lg bg-primary text-white font-medium hover:bg-primary-light transition-colors"
+          disabled={saving}
+          className="px-6 py-2 rounded-lg bg-primary text-white font-medium hover:bg-primary-light transition-colors disabled:opacity-50"
         >
-          Save Changes
+          {saving ? "Saving..." : "Save Changes"}
         </button>
         {saved && (
           <span className="text-sm text-risk-green font-medium">Saved!</span>
