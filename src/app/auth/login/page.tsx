@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
@@ -12,20 +12,30 @@ export default function LoginPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [isSignUp, setIsSignUp] = useState(false);
   const router = useRouter();
-  const supabase = createClient();
-  const isConfigured =
-    process.env.NEXT_PUBLIC_SUPABASE_URL &&
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  const supabase = useMemo(() => {
+    try {
+      return createClient();
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const isConfigured = !!(
+    process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  );
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isConfigured) {
+    setError(null);
+    setMessage(null);
+
+    if (!isConfigured || !supabase) {
       setError("Supabase not configured. Add credentials to .env.local");
       return;
     }
+
     setLoading(true);
-    setError(null);
-    setMessage(null);
 
     try {
       if (isSignUp) {
@@ -47,23 +57,32 @@ export default function LoginPage() {
         router.push("/app/dashboard");
         router.refresh();
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "An error occurred";
+      setError(msg);
     } finally {
       setLoading(false);
     }
   };
 
   const handleGoogleLogin = async () => {
-    if (!isConfigured) {
+    setError(null);
+
+    if (!isConfigured || !supabase) {
       setError("Supabase not configured. Add credentials to .env.local");
       return;
     }
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
-    });
-    if (error) setError(error.message);
+
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: `${window.location.origin}/auth/callback` },
+      });
+      if (error) throw error;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Google login failed";
+      setError(msg);
+    }
   };
 
   return (
@@ -83,15 +102,20 @@ export default function LoginPage() {
 
         <div className="bg-white rounded-xl border border-border p-8 shadow-sm">
           {!isConfigured && (
-            <div className="mb-4 p-3 rounded-lg bg-risk-yellow/10 text-risk-yellow text-sm text-center">
-              ⚠️ Supabase credentials not configured. Set up .env.local to
-              enable auth.
+            <div className="mb-4 p-3 rounded-lg bg-risk-yellow/10 border border-risk-yellow/20 text-sm text-center">
+              <p className="font-medium text-risk-yellow mb-1">
+                Supabase not configured
+              </p>
+              <p className="text-text-muted text-xs">
+                Add credentials to <code className="bg-surface-alt px-1 rounded">.env.local</code> to enable auth.
+              </p>
             </div>
           )}
+
           <button
             onClick={handleGoogleLogin}
             disabled={!isConfigured}
-            className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-border rounded-lg hover:bg-surface-alt transition-colors font-medium disabled:opacity-50"
+            className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-border rounded-lg hover:bg-surface-alt transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path
@@ -148,25 +172,25 @@ export default function LoginPage() {
                 required
                 minLength={6}
                 className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                placeholder="••••••••"
+                placeholder="Min 6 characters"
               />
             </div>
 
             {error && (
-              <p className="text-sm text-risk-red bg-risk-red/10 px-3 py-2 rounded-lg">
-                {error}
-              </p>
+              <div className="p-3 rounded-lg bg-risk-red/10 border border-risk-red/20">
+                <p className="text-sm text-risk-red">{error}</p>
+              </div>
             )}
             {message && (
-              <p className="text-sm text-primary bg-primary/10 px-3 py-2 rounded-lg">
-                {message}
-              </p>
+              <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
+                <p className="text-sm text-primary">{message}</p>
+              </div>
             )}
 
             <button
               type="submit"
-              disabled={loading}
-              className="w-full py-3 rounded-lg bg-primary text-white font-semibold hover:bg-primary-light transition-colors disabled:opacity-50"
+              disabled={loading || !isConfigured}
+              className="w-full py-3 rounded-lg bg-primary text-white font-semibold hover:bg-primary-light transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading
                 ? "Loading..."
@@ -176,20 +200,36 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <p className="mt-4 text-center text-sm text-text-muted">
-            {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
+          <div className="mt-6 text-center">
+            <p className="text-sm text-text-muted">
+              {isSignUp
+                ? "Already have an account?"
+                : "Don't have an account?"}{" "}
+            </p>
             <button
+              type="button"
               onClick={() => {
                 setIsSignUp(!isSignUp);
                 setError(null);
                 setMessage(null);
               }}
-              className="text-primary font-medium hover:underline"
+              className="mt-1 text-sm text-primary font-semibold hover:underline"
             >
-              {isSignUp ? "Sign In" : "Sign Up"}
+              {isSignUp ? "Sign In instead" : "Create an account"}
             </button>
-          </p>
+          </div>
         </div>
+
+        <p className="mt-6 text-center text-xs text-text-muted">
+          By continuing, you agree to our{" "}
+          <a href="/terms" className="underline hover:text-text">
+            Terms
+          </a>{" "}
+          and{" "}
+          <a href="/privacy" className="underline hover:text-text">
+            Privacy Policy
+          </a>
+        </p>
       </div>
     </div>
   );

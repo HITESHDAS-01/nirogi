@@ -28,6 +28,7 @@ export async function updateSession(request: NextRequest) {
     },
   });
 
+  // Refresh session if expired — important for Server Components
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -35,12 +36,14 @@ export async function updateSession(request: NextRequest) {
   const isAuthRoute = request.nextUrl.pathname.startsWith("/auth");
   const isProtectedRoute = request.nextUrl.pathname.startsWith("/app");
 
+  // Redirect unauthenticated users to login
   if (!user && isProtectedRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/auth/login";
     return NextResponse.redirect(url);
   }
 
+  // Redirect authenticated users away from auth pages
   if (user && isAuthRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/app/dashboard";

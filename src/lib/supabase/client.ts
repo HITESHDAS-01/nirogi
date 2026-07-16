@@ -1,13 +1,17 @@
 import { createBrowserClient } from "@supabase/ssr";
 
+let client: ReturnType<typeof createBrowserClient> | null = null;
+
 export function createClient() {
+  if (client) return client;
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseKey) {
-    console.warn("Supabase credentials not configured. Auth features will not work.");
-    return null as any;
+    return null;
   }
 
-  return createBrowserClient(supabaseUrl, supabaseKey);
+  client = createBrowserClient(supabaseUrl, supabaseKey);
+  return client;
 }
