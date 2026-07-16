@@ -47,7 +47,7 @@ export async function POST(request: Request) {
         supabase.from("health_profiles").select("*").eq("user_id", user.id).maybeSingle(),
         supabase.from("chronic_conditions").select("condition_name").eq("user_id", user.id),
         supabase.from("current_medicines").select("medicine_name").eq("user_id", user.id),
-        supabase.from("documents").select("file_name, doc_type, doc_date, hospital_name, doctor_name, processing_status").eq("user_id", user.id).order("created_at", { ascending: false }).limit(10),
+        supabase.from("documents").select("id, file_name, doc_type, doc_date, hospital_name, doctor_name, processing_status").eq("user_id", user.id).order("created_at", { ascending: false }).limit(10),
         supabase.from("health_metrics").select("metric_type, value, unit, recorded_at").eq("user_id", user.id).order("recorded_at", { ascending: false }).limit(20),
         supabase.from("follow_ups").select("doctor_name, due_date, notes, is_completed").eq("user_id", user.id).order("due_date", { ascending: true }).limit(10),
       ]);
@@ -72,6 +72,27 @@ export async function POST(request: Request) {
 
       conditions = (conditionsRes.data || []).map((c) => c.condition_name).filter(Boolean);
       medicines = (medicinesRes.data || []).map((m) => m.medicine_name).filter(Boolean);
+
+      // Fetch extraction data for recent documents
+      const docIds = (docsRes.data || []).map((d) => d.id);
+      let extractions: Record<string, unknown>[] = [];
+      if (docIds.length > 0) {
+        const { data: extData } = await supabase
+          .from("document_extractions")
+          .select("document_id, explanation_en, risk_level, key_findings, medicines_found, diagnosis_noted, follow_up_date, follow_up_notes, allergy_warnings, interaction_warnings, duplicate_warnings")
+          .in("document_id", docIds)
+          .order("created_at", { ascending: false });
+
+        extractions = extData || [];
+      }
+
+      // Build extraction map by document_id
+      const extractionMap: Record<string, Record<string, unknown>> = {};
+      extractions.forEach((ext) => {
+        if (!extractionMap[ext.document_id as string]) {
+          extractionMap[ext.document_id as string] = ext as Record<string, unknown>;
+        }
+      });
 
       const riskLevel = (status: string) => {
         if (status === "completed") return "green";
@@ -101,6 +122,33 @@ export async function POST(request: Request) {
           is_completed: f.is_completed,
         })),
       });
+
+      // Add extraction details to records summary
+      if (extractions.length > 0) {
+        recordsSummary += "\n\nDOCUMENT EXTRACTION DETAILS:";
+        (docsRes.data || []).forEach((doc) => {
+          const ext = extractionMap[doc.id];
+          if (ext) {
+            recordsSummary += `\n\n--- ${doc.file_name} (${doc.doc_type || "document"}) ---`;
+            if (ext.diagnosis_noted) recordsSummary += `\nDiagnosis: ${ext.diagnosis_noted}`;
+            if (ext.risk_level) recordsSummary += `\nRisk Level: ${ext.risk_level}`;
+            if (ext.explanation_en) recordsSummary += `\nExplanation: ${ext.explanation_en}`;
+            if (Array.isArray(ext.key_findings) && ext.key_findings.length > 0) {
+              recordsSummary += `\nKey Findings:`;
+              (ext.key_findings as Array<{ name: string; value: string; unit?: string; normal_range?: string; status?: string }>).forEach((f) => {
+                recordsSummary += `\n  - ${f.name}: ${f.value} ${f.unit || ""} (Normal: ${f.normal_range || "N/A"}) [${f.status || "unknown"}]`;
+              });
+            }
+            if (Array.isArray(ext.medicines_found) && ext.medicines_found.length > 0) {
+              recordsSummary += `\nMedicines:`;
+              (ext.medicines_found as Array<{ name: string; dose?: string; frequency?: string }>).forEach((m) => {
+                recordsSummary += `\n  - ${m.name} ${m.dose || ""} ${m.frequency || ""}`;
+              });
+            }
+            if (ext.follow_up_date) recordsSummary += `\nFollow-up: ${ext.follow_up_date}`;
+          }
+        });
+      }
     }
 
     const systemPrompt = getNirogiSystemPrompt({
