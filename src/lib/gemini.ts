@@ -2,8 +2,12 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
+export function isGeminiConfigured(): boolean {
+  return !!process.env.GEMINI_API_KEY;
+}
+
 export async function processDocument(base64Data: string, mimeType: string) {
-  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
   const prompt = `You are a medical document assistant. Extract information from this document.
 Return ONLY valid JSON with these fields:
@@ -50,7 +54,7 @@ export async function chatWithAI(
   userProfile: string,
   recentDocs: string
 ) {
-  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
   const systemPrompt = `You are Nirogi Assistant, a personal health companion.
 You have access to the user's health profile and medical records.
@@ -83,4 +87,44 @@ Rules:
   const lastMessage = messages[messages.length - 1];
   const result = await chat.sendMessage(lastMessage.content);
   return result.response.text();
+}
+
+export async function chatWithAIStream(
+  messages: Array<{ role: string; content: string }>,
+  userProfile: string,
+  recentDocs: string
+) {
+  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+  const systemPrompt = `You are Nirogi Assistant, a personal health companion.
+You have access to the user's health profile and medical records.
+
+USER PROFILE:
+${userProfile}
+
+RECENT DOCUMENTS:
+${recentDocs}
+
+Rules:
+- Explain, educate, organize, compare
+- Never diagnose, prescribe, or replace doctors
+- If user describes emergency symptoms → advise emergency care immediately
+- If asked about specific report → refer to their actual data
+- Keep responses concise and friendly
+- Never make up medical information`;
+
+  const chat = model.startChat({
+    history: [
+      { role: "user", parts: [{ text: systemPrompt }] },
+      { role: "model", parts: [{ text: "Understood. I'm ready to help with health questions." }] },
+      ...messages.slice(0, -1).map((m) => ({
+        role: m.role === "user" ? "user" : "model" as const,
+        parts: [{ text: m.content }],
+      })),
+    ],
+  });
+
+  const lastMessage = messages[messages.length - 1];
+  const result = await chat.sendMessageStream(lastMessage.content);
+  return result.stream;
 }

@@ -22,7 +22,8 @@ export default function ChatPage() {
     if (!input.trim() || loading) return;
 
     const userMessage: Message = { role: "user", content: input.trim() };
-    setMessages((prev) => [...prev, userMessage]);
+    const allMessages = [...messages, userMessage];
+    setMessages(allMessages);
     setInput("");
     setLoading(true);
 
@@ -30,25 +31,46 @@ export default function ChatPage() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: [...messages, userMessage],
-        }),
+        body: JSON.stringify({ messages: allMessages }),
       });
 
-      if (!res.ok) throw new Error("Failed to get response");
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => null);
+        throw new Error(errorData?.error || "Failed to get response");
+      }
 
-      const data = await res.json();
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: data.reply },
-      ]);
-    } catch {
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error("No response stream");
+
+      const decoder = new TextDecoder();
+      let assistantContent = "";
+
+      setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        assistantContent += chunk;
+
+        setMessages((prev) => {
+          const updated = [...prev];
+          updated[updated.length - 1] = {
+            role: "assistant",
+            content: assistantContent,
+          };
+          return updated;
+        });
+      }
+    } catch (err) {
+      const errorMsg =
+        err instanceof Error ? err.message : "Something went wrong";
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content:
-            "Sorry, I encountered an error. Please make sure your API keys are configured.",
+          content: `Sorry, ${errorMsg}. Please try again.`,
         },
       ]);
     } finally {
@@ -103,24 +125,19 @@ export default function ChatPage() {
             className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
           >
             <div
-              className={`max-w-[80%] px-4 py-3 rounded-2xl text-sm ${
+              className={`max-w-[80%] px-4 py-3 rounded-2xl text-sm whitespace-pre-wrap ${
                 msg.role === "user"
                   ? "bg-primary text-white rounded-br-md"
                   : "bg-white border border-border text-text rounded-bl-md"
               }`}
             >
               {msg.content}
+              {loading && i === messages.length - 1 && msg.role === "assistant" && (
+                <span className="inline-block w-1.5 h-4 ml-0.5 bg-text-muted animate-pulse" />
+              )}
             </div>
           </div>
         ))}
-
-        {loading && (
-          <div className="flex justify-start">
-            <div className="bg-white border border-border rounded-2xl rounded-bl-md px-4 py-3 text-sm text-text-muted">
-              Thinking...
-            </div>
-          </div>
-        )}
 
         <div ref={messagesEndRef} />
       </div>
