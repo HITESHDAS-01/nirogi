@@ -8,19 +8,22 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { file_url, file_type } = body;
+    const { file_type, file_path } = body;
     document_id = body.document_id;
 
+    console.log("[process-document] Starting processing for document:", document_id);
+
     if (!isGeminiConfigured()) {
+      console.error("[process-document] Gemini API key not configured");
       return NextResponse.json(
         { error: "Gemini API key not configured" },
         { status: 503 }
       );
     }
 
-    if (!file_url) {
+    if (!file_path) {
       return NextResponse.json(
-        { error: "file_url is required" },
+        { error: "file_path is required" },
         { status: 400 }
       );
     }
@@ -28,6 +31,7 @@ export async function POST(request: Request) {
     const supabase = await createClient();
 
     if (!supabase) {
+      console.error("[process-document] Supabase client null");
       return NextResponse.json(
         { error: "Supabase not configured" },
         { status: 503 }
@@ -35,6 +39,7 @@ export async function POST(request: Request) {
     }
 
     const { data: { user } } = await supabase.auth.getUser();
+    console.log("[process-document] User:", user?.id || "none");
 
     let userName = "User";
     let userAge = 30;
@@ -57,8 +62,8 @@ export async function POST(request: Request) {
       }
 
       allergies = Array.isArray(healthRes.data?.allergies) ? healthRes.data.allergies : [];
-      conditions = (conditionsRes.data || []).map((c) => c.condition_name).filter(Boolean);
-      medicines = (medicinesRes.data || []).map((m) => m.medicine_name).filter(Boolean);
+      conditions = (conditionsRes.data || []).map((c: Record<string, unknown>) => c.condition_name as string).filter(Boolean);
+      medicines = (medicinesRes.data || []).map((m: Record<string, unknown>) => m.medicine_name as string).filter(Boolean);
     }
 
     const systemPrompt = getDocumentProcessingPrompt({
@@ -69,18 +74,30 @@ export async function POST(request: Request) {
       allergies,
     });
 
-    const response = await fetch(file_url);
-    if (!response.ok) {
+    console.log("[process-document] Downloading file from storage:", file_path);
+
+    const { data: fileData, error: downloadError } = await supabase.storage
+      .from("documents")
+      .download(file_path);
+
+    if (downloadError || !fileData) {
+      console.error("[process-document] Download error:", downloadError);
       return NextResponse.json(
-        { error: "Failed to fetch document" },
+        { error: "Failed to download document from storage" },
         { status: 500 }
       );
     }
 
-    const buffer = await response.arrayBuffer();
+    console.log("[process-document] File downloaded, size:", fileData.size);
+
+    const buffer = await fileData.arrayBuffer();
     const base64Data = Buffer.from(buffer).toString("base64");
 
+    console.log("[process-document] Calling Gemini API...");
+
     const extraction = await processDocument(base64Data, file_type || "application/pdf", systemPrompt);
+
+    console.log("[process-document] Extraction complete");
 
     if (document_id && user) {
       await supabase.from("document_extractions").insert({
@@ -107,6 +124,8 @@ export async function POST(request: Request) {
         hospital_name: extraction.hospital_name || null,
         doctor_name: extraction.doctor_name || null,
       }).eq("id", document_id);
+
+      console.log("[process-document] Saved to DB, status: completed");
     }
 
     return NextResponse.json({
@@ -114,9 +133,8 @@ export async function POST(request: Request) {
       extraction,
     });
   } catch (error) {
-    console.error("Document processing error:", error);
+    console.error("[process-document] Error:", error);
 
-    // Update status to failed so document doesn't stay stuck in "processing"
     if (document_id) {
       try {
         const supabase = await createClient();
@@ -124,6 +142,7 @@ export async function POST(request: Request) {
           await supabase.from("documents").update({
             processing_status: "failed",
           }).eq("id", document_id);
+          console.log("[process-document] Updated status to failed");
         }
       } catch {}
     }

@@ -104,7 +104,7 @@ export default function UploadPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          file_url: urlData.publicUrl,
+          file_path: filePath,
           file_type: file.type,
           document_id: docRecord.id,
         }),

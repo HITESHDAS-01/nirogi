@@ -308,7 +308,7 @@ CREATE TRIGGER on_auth_user_created
 -- ============================================
 
 INSERT INTO storage.buckets (id, name, public)
-VALUES ('documents', 'documents', false)
+VALUES ('documents', 'documents', true)
 ON CONFLICT (id) DO NOTHING;
 
 -- Storage RLS Policies
