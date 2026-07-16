@@ -7,15 +7,55 @@ interface Message {
   content: string;
 }
 
+const STORAGE_KEY = "nirogi-chat-history";
+
+function loadMessages(): Message[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const data = localStorage.getItem(STORAGE_KEY);
+    return data ? JSON.parse(data) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveMessages(messages: Message[]) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+  } catch {
+    // storage full or unavailable
+  }
+}
+
 export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const initialized = useRef(false);
+
+  useEffect(() => {
+    if (!initialized.current) {
+      setMessages(loadMessages());
+      initialized.current = true;
+    }
+  }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  useEffect(() => {
+    if (initialized.current) {
+      saveMessages(messages);
+    }
+  }, [messages]);
+
+  const handleNewChat = () => {
+    setMessages([]);
+    localStorage.removeItem(STORAGE_KEY);
+  };
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -87,11 +127,21 @@ export default function ChatPage() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-8rem)]">
-      <div>
-        <h1 className="text-2xl font-bold text-text">AI Health Chat</h1>
-        <p className="text-text-muted">
-          Ask questions about your health records
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-text">AI Health Chat</h1>
+          <p className="text-text-muted">
+            Ask questions about your health records
+          </p>
+        </div>
+        {messages.length > 0 && (
+          <button
+            onClick={handleNewChat}
+            className="px-4 py-2 text-sm rounded-lg border border-border text-text-muted hover:bg-secondary hover:text-text transition-colors"
+          >
+            New Chat
+          </button>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto py-4 space-y-4">
