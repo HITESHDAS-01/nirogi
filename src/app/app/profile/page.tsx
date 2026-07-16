@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { loadProfile, updateProfile } from "@/lib/profile-store";
 
 export default function ProfilePage() {
   const [form, setForm] = useState({
@@ -11,8 +12,19 @@ export default function ProfilePage() {
   });
   const [saved, setSaved] = useState(false);
 
+  useEffect(() => {
+    const profile = loadProfile();
+    setForm({
+      full_name: profile.full_name,
+      dob: profile.dob,
+      gender: profile.gender,
+      language: profile.language,
+    });
+  }, []);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    updateProfile(form);
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
   };

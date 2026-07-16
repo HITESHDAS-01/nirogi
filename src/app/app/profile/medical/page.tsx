@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { loadProfile, updateProfile, type ProfileData } from "@/lib/profile-store";
 
 export default function MedicalProfilePage() {
   const [conditions, setConditions] = useState<Record<string, string>[]>([]);
@@ -11,7 +12,21 @@ export default function MedicalProfilePage() {
   );
   const [saved, setSaved] = useState(false);
 
+  useEffect(() => {
+    const profile = loadProfile();
+    setConditions(profile.conditions);
+    setMedicines(profile.medicines);
+    setSurgeries(profile.surgeries);
+    setFamilyHistory(profile.family_history);
+  }, []);
+
   const handleSave = () => {
+    updateProfile({
+      conditions: conditions as ProfileData["conditions"],
+      medicines: medicines as ProfileData["medicines"],
+      surgeries: surgeries as ProfileData["surgeries"],
+      family_history: familyHistory as ProfileData["family_history"],
+    });
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
   };

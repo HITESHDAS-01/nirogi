@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { loadProfile, updateProfile } from "@/lib/profile-store";
 
 export default function HealthProfilePage() {
   const [form, setForm] = useState({
@@ -13,8 +14,21 @@ export default function HealthProfilePage() {
   });
   const [saved, setSaved] = useState(false);
 
+  useEffect(() => {
+    const profile = loadProfile();
+    setForm({
+      height_cm: profile.height_cm,
+      weight_kg: profile.weight_kg,
+      blood_group: profile.blood_group,
+      allergies: profile.allergies,
+      emergency_contact_name: profile.emergency_contact_name,
+      emergency_contact_phone: profile.emergency_contact_phone,
+    });
+  }, []);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    updateProfile(form);
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
   };

@@ -1,4 +1,24 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { loadProfile, type ProfileData } from "@/lib/profile-store";
+
 export default function EmergencyPage() {
+  const [profile, setProfile] = useState<ProfileData | null>(null);
+
+  useEffect(() => {
+    setProfile(loadProfile());
+  }, []);
+
+  const bloodGroup = profile?.blood_group || "—";
+  const allergies = profile?.allergies
+    ? profile.allergies.split(",").map((a) => a.trim()).filter(Boolean)
+    : [];
+  const contactName = profile?.emergency_contact_name || "Not set";
+  const contactPhone = profile?.emergency_contact_phone || "";
+  const medicines = profile?.medicines?.filter((m) => m.medicine_name) || [];
+  const conditions = profile?.conditions?.filter((c) => c.condition_name) || [];
+
   return (
     <div className="max-w-lg mx-auto space-y-6">
       <div>
@@ -10,7 +30,7 @@ export default function EmergencyPage() {
 
       <div className="bg-white rounded-2xl border-2 border-risk-red overflow-hidden">
         <div className="bg-risk-red text-white px-6 py-4 text-center">
-          <h2 className="text-xl font-bold">🚨 EMERGENCY INFORMATION</h2>
+          <h2 className="text-xl font-bold">EMERGENCY INFORMATION</h2>
         </div>
 
         <div className="p-6 space-y-6">
@@ -18,35 +38,75 @@ export default function EmergencyPage() {
             <p className="text-sm text-text-muted uppercase tracking-wide">
               Blood Group
             </p>
-            <p className="text-4xl font-bold text-risk-red mt-1">—</p>
+            <p className="text-4xl font-bold text-risk-red mt-1">
+              {bloodGroup}
+            </p>
           </div>
 
           <div className="border-t border-border pt-4">
             <p className="text-sm text-text-muted uppercase tracking-wide mb-2">
               Allergies
             </p>
-            <p className="text-text font-medium">No allergies recorded</p>
+            {allergies.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {allergies.map((a, i) => (
+                  <span
+                    key={i}
+                    className="px-2 py-1 bg-risk-red/10 text-risk-red text-sm font-medium rounded"
+                  >
+                    {a}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-text font-medium">No allergies recorded</p>
+            )}
           </div>
 
           <div className="border-t border-border pt-4">
             <p className="text-sm text-text-muted uppercase tracking-wide mb-2">
               Emergency Contact
             </p>
-            <p className="text-text font-medium">Not set</p>
+            <p className="text-text font-medium">{contactName}</p>
+            {contactPhone && (
+              <p className="text-primary font-semibold mt-1">{contactPhone}</p>
+            )}
           </div>
 
           <div className="border-t border-border pt-4">
             <p className="text-sm text-text-muted uppercase tracking-wide mb-2">
               Current Medicines
             </p>
-            <p className="text-text font-medium">No medicines recorded</p>
+            {medicines.length > 0 ? (
+              <ul className="space-y-1">
+                {medicines.map((m, i) => (
+                  <li key={i} className="text-text font-medium">
+                    {m.medicine_name}
+                    {m.dose && ` — ${m.dose}`}
+                    {m.frequency && ` (${m.frequency})`}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-text font-medium">No medicines recorded</p>
+            )}
           </div>
 
           <div className="border-t border-border pt-4">
             <p className="text-sm text-text-muted uppercase tracking-wide mb-2">
               Chronic Conditions
             </p>
-            <p className="text-text font-medium">No conditions recorded</p>
+            {conditions.length > 0 ? (
+              <ul className="space-y-1">
+                {conditions.map((c, i) => (
+                  <li key={i} className="text-text font-medium">
+                    {c.condition_name}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-text font-medium">No conditions recorded</p>
+            )}
           </div>
         </div>
       </div>
