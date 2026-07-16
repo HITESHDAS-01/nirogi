@@ -97,7 +97,46 @@ export async function POST(request: Request) {
 
     const extraction = await processDocument(base64Data, file_type || "application/pdf", systemPrompt);
 
-    console.log("[process-document] Extraction complete");
+    console.log("[process-document] Extraction complete. Validating...");
+
+    // Validation: check if extraction looks like hallucinated data
+    const validationWarnings: string[] = [];
+
+    // Check 1: If no tests/medicines extracted but diagnosis exists — suspicious
+    if (extraction.diagnosis && (!extraction.key_values || extraction.key_values.length === 0) && (!extraction.medicines || extraction.medicines.length === 0)) {
+      validationWarnings.push("Diagnosis found but no test results or medicines extracted — may be hallucinated");
+    }
+
+    // Check 2: If doctor_name looks like a common fake name pattern
+    const fakeNamePatterns = /dr\.\s*(sharma|verma|patel|kumar|singh|gupta|reddy|nair|das|bose)/i;
+    if (extraction.doctor_name && fakeNamePatterns.test(extraction.doctor_name)) {
+      // Only flag if it's a very generic name with no other context
+      if (!extraction.hospital_name && extraction.key_values?.length === 0) {
+        validationWarnings.push("Doctor name may be hallucinated — no hospital or test data found");
+      }
+    }
+
+    // Check 3: If explanation mentions conditions/tests not in extracted data
+    if (extraction.explanation_simple && extraction.key_values?.length === 0) {
+      // Explanation exists but no actual data — suspicious
+      validationWarnings.push("Explanation provided but no actual test values extracted — verify accuracy");
+    }
+
+    // Check 4: If risk_level is red but no specific abnormal values listed
+    if (extraction.risk_level === "red" && extraction.key_values?.length === 0) {
+      validationWarnings.push("Risk level is RED but no abnormal test values listed — may need review");
+    }
+
+    // Add validation warnings to important_notes
+    if (validationWarnings.length > 0) {
+      console.warn("[process-document] Validation warnings:", validationWarnings);
+      extraction.important_notes = [
+        ...(extraction.important_notes || []),
+        ...validationWarnings,
+        "⚠️ Some data may need manual verification — please cross-check with original document",
+      ];
+      extraction._validation_warnings = validationWarnings;
+    }
 
     if (document_id && user) {
       await supabase.from("document_extractions").insert({

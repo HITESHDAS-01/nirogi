@@ -32,6 +32,7 @@ interface Extraction {
   allergy_warnings: Array<{ medicine: string; allergy: string; warning: string }>;
   interaction_warnings: Array<{ medicine1: string; medicine2: string; warning: string }>;
   duplicate_warnings: Array<{ existing: string; new: string; warning: string }>;
+  important_notes: string[];
   created_at: string;
 }
 
@@ -439,6 +440,26 @@ export default function DocumentDetailPage({
               )}
             </div>
           )}
+
+          {extraction.important_notes && extraction.important_notes.length > 0 && (
+            <div className="bg-risk-yellow/5 border border-risk-yellow/20 rounded-xl p-4">
+              <h3 className="font-semibold text-risk-yellow mb-2">
+                ⚠️ Important Notes
+              </h3>
+              {extraction.important_notes.map((note, i) => (
+                <p key={i} className="text-sm text-text mb-1 last:mb-0">{note}</p>
+              ))}
+            </div>
+          )}
+
+          <div className="bg-surface-alt rounded-xl p-4 text-center">
+            <p className="text-sm text-text-muted">
+              Is analysis mein kuch galat hai?{" "}
+              <button className="text-primary font-medium hover:underline">
+                Report karo
+              </button>
+            </p>
+          </div>
         </>
       )}
     </div>
