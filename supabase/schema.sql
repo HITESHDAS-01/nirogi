@@ -106,6 +106,9 @@ CREATE TABLE IF NOT EXISTS document_extractions (
   follow_up_date DATE,
   follow_up_notes TEXT,
   diagnosis_noted TEXT,
+  allergy_warnings JSONB DEFAULT '[]',
+  interaction_warnings JSONB DEFAULT '[]',
+  duplicate_warnings JSONB DEFAULT '[]',
   ai_model_used TEXT,
   created_at TIMESTAMPTZ DEFAULT now()
 );

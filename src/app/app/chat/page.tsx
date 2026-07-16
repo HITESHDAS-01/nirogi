@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 interface Message {
   role: "user" | "assistant";
@@ -11,42 +12,13 @@ interface Conversation {
   id: string;
   title: string;
   messages: Message[];
-  createdAt: number;
+  createdAt: string;
 }
 
-const STORAGE_KEY = "nirogi-chat-conversations";
-const ACTIVE_KEY = "nirogi-chat-active";
-
-function loadConversations(): Conversation[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const data = localStorage.getItem(STORAGE_KEY);
-    return data ? JSON.parse(data) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveConversations(convos: Conversation[]) {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(convos));
-  } catch {}
-}
-
-function loadActiveId(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem(ACTIVE_KEY);
-}
-
-function saveActiveId(id: string | null) {
-  if (typeof window === "undefined") return;
-  if (id) localStorage.setItem(ACTIVE_KEY, id);
-  else localStorage.removeItem(ACTIVE_KEY);
-}
-
-function generateId() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+interface ConversationRow {
+  id: string;
+  messages: Message[];
+  created_at: string;
 }
 
 function getTitle(messages: Message[]): string {
@@ -56,8 +28,8 @@ function getTitle(messages: Message[]): string {
   return text.length > 40 ? text.slice(0, 40) + "..." : text;
 }
 
-function formatTime(ts: number): string {
-  const d = new Date(ts);
+function formatTime(iso: string): string {
+  const d = new Date(iso);
   const now = new Date();
   const diff = now.getTime() - d.getTime();
   if (diff < 60000) return "Just now";
@@ -71,53 +43,64 @@ export default function ChatPage() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [pageLoading, setPageLoading] = useState(true);
   const [showSidebar, setShowSidebar] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const initialized = useRef(false);
 
   const activeConvo = conversations.find((c) => c.id === activeId);
   const messages = activeConvo?.messages ?? [];
 
+  const supabase = createClient();
+
+  const getUserId = useCallback(async (): Promise<string | null> => {
+    if (!supabase) return null;
+    const { data: { user } } = await supabase.auth.getUser();
+    return user?.id ?? null;
+  }, [supabase]);
+
   useEffect(() => {
-    if (!initialized.current) {
-      const convos = loadConversations();
-      setConversations(convos);
-      const savedActive = loadActiveId();
-      if (savedActive && convos.find((c) => c.id === savedActive)) {
-        setActiveId(savedActive);
-      } else if (convos.length > 0) {
-        setActiveId(convos[0].id);
+    const load = async () => {
+      const userId = await getUserId();
+      if (!userId || !supabase) {
+        setPageLoading(false);
+        return;
       }
-      initialized.current = true;
-    }
-  }, []);
+
+      const { data } = await supabase
+        .from("ai_conversations")
+        .select("*")
+        .eq("user_id", userId)
+        .order("updated_at", { ascending: false });
+
+      if (data) {
+        const convos: Conversation[] = (data as ConversationRow[]).map((row) => ({
+          id: row.id,
+          title: getTitle(row.messages as Message[]),
+          messages: (row.messages as Message[]) ?? [],
+          createdAt: row.created_at,
+        }));
+        setConversations(convos);
+        if (convos.length > 0) setActiveId(convos[0].id);
+      }
+      setPageLoading(false);
+    };
+    load();
+  }, [getUserId, supabase]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  useEffect(() => {
-    if (initialized.current && conversations.length > 0) {
-      saveConversations(conversations);
-    }
-  }, [conversations]);
-
-  useEffect(() => {
-    if (initialized.current) {
-      saveActiveId(activeId);
-    }
-  }, [activeId]);
-
   const handleNewChat = () => {
-    const id = generateId();
+    const tempId = "temp-" + Date.now().toString(36);
     const newConvo: Conversation = {
-      id,
+      id: tempId,
       title: "New Chat",
       messages: [],
-      createdAt: Date.now(),
+      createdAt: new Date().toISOString(),
     };
     setConversations((prev) => [newConvo, ...prev]);
-    setActiveId(id);
+    setActiveId(tempId);
     setShowSidebar(false);
   };
 
@@ -126,7 +109,11 @@ export default function ChatPage() {
     setShowSidebar(false);
   };
 
-  const handleDeleteChat = (id: string) => {
+  const handleDeleteChat = async (id: string) => {
+    if (!supabase) return;
+    if (!id.startsWith("temp-")) {
+      await supabase.from("ai_conversations").delete().eq("id", id);
+    }
     setConversations((prev) => {
       const updated = prev.filter((c) => c.id !== id);
       if (activeId === id) {
@@ -136,26 +123,61 @@ export default function ChatPage() {
     });
   };
 
-  const updateMessages = (updater: (prev: Message[]) => Message[]) => {
-    setConversations((prev) =>
-      prev.map((c) => {
-        if (c.id !== activeId) return c;
-        const newMessages = updater(c.messages);
-        return {
-          ...c,
-          messages: newMessages,
-          title: c.title === "New Chat" ? getTitle(newMessages) : c.title,
-        };
-      })
-    );
+  const persistConversation = async (id: string, msgs: Message[]) => {
+    if (!supabase) return id;
+    const userId = await getUserId();
+    if (!userId) return id;
+
+    if (id.startsWith("temp-")) {
+      const { data } = await supabase
+        .from("ai_conversations")
+        .insert({ user_id: userId, messages: msgs })
+        .select("id, created_at")
+        .single();
+
+      if (data) {
+        setConversations((prev) =>
+          prev.map((c) =>
+            c.id === id ? { ...c, id: data.id, createdAt: data.created_at } : c
+          )
+        );
+        setActiveId(data.id);
+        return data.id;
+      }
+    } else {
+      await supabase
+        .from("ai_conversations")
+        .update({ messages: msgs, updated_at: new Date().toISOString() })
+        .eq("id", id);
+    }
+    return id;
   };
+
+  const updateMessages = useCallback(
+    (updater: (prev: Message[]) => Message[]) => {
+      setConversations((prev) =>
+        prev.map((c) => {
+          if (c.id !== activeId) return c;
+          const newMessages = updater(c.messages);
+          return {
+            ...c,
+            messages: newMessages,
+            title: c.title === "New Chat" ? getTitle(newMessages) : c.title,
+          };
+        })
+      );
+    },
+    [activeId]
+  );
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || loading) return;
 
-    if (!activeId) {
+    let currentId = activeId;
+    if (!currentId) {
       handleNewChat();
+      currentId = "temp-" + Date.now().toString(36);
     }
 
     const userMessage: Message = { role: "user", content: input.trim() };
@@ -201,6 +223,12 @@ export default function ChatPage() {
           return updated;
         });
       }
+
+      const finalMessages = [...allMessages, { role: "assistant" as const, content: assistantContent }];
+      const finalId = currentId ?? activeId;
+      if (finalId) {
+        await persistConversation(finalId, finalMessages);
+      }
     } catch (err) {
       const errorMsg =
         err instanceof Error ? err.message : "Something went wrong";
@@ -240,7 +268,17 @@ export default function ChatPage() {
           </button>
         </div>
         <div className="flex-1 overflow-y-auto">
-          {conversations.length === 0 && (
+          {pageLoading && (
+            <div className="p-4 space-y-3">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="animate-pulse">
+                  <div className="h-4 bg-gray-200 rounded w-3/4" />
+                  <div className="h-3 bg-gray-200 rounded w-1/2 mt-1" />
+                </div>
+              ))}
+            </div>
+          )}
+          {!pageLoading && conversations.length === 0 && (
             <p className="p-4 text-xs text-text-muted text-center">
               No conversations yet
             </p>
