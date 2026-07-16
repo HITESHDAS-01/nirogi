@@ -2,6 +2,7 @@
 
 import { useState, useEffect, use } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 interface Document {
@@ -124,9 +125,13 @@ export default function DocumentDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
+  const router = useRouter();
   const [document, setDocument] = useState<Document | null>(null);
   const [extraction, setExtraction] = useState<Extraction | null>(null);
   const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     const fetchDoc = async () => {
@@ -142,7 +147,10 @@ export default function DocumentDetailPage({
         .eq("id", id)
         .single();
 
-      if (doc) setDocument(doc as Document);
+      if (doc) {
+        setDocument(doc as Document);
+        setNewName((doc as Document).file_name);
+      }
 
       const { data: ext } = await supabase
         .from("document_extractions")
@@ -158,6 +166,38 @@ export default function DocumentDetailPage({
 
     fetchDoc();
   }, [id]);
+
+  const handleRename = async () => {
+    if (!newName.trim() || newName === document?.file_name) {
+      setEditing(false);
+      return;
+    }
+    setSaving(true);
+    const supabase = createClient();
+    if (!supabase) return;
+
+    await supabase.from("documents").update({ file_name: newName.trim() }).eq("id", id);
+    setDocument((prev) => prev ? { ...prev, file_name: newName.trim() } : prev);
+    setEditing(false);
+    setSaving(false);
+  };
+
+  const handleDelete = async () => {
+    if (!confirm("Delete this document? This cannot be undone.")) return;
+
+    const supabase = createClient();
+    if (!supabase) return;
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const fileExt = document?.file_name.split(".").pop();
+    const storagePath = `${user.id}/${id}.${fileExt}`;
+    await supabase.storage.from("documents").remove([storagePath]);
+    await supabase.from("documents").delete().eq("id", id);
+
+    router.push("/app/documents");
+  };
 
   if (loading) {
     return (
@@ -205,7 +245,47 @@ export default function DocumentDetailPage({
         >
           ← Back to documents
         </Link>
-        <h1 className="text-2xl font-bold text-text">{document.file_name}</h1>
+        {editing ? (
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleRename()}
+              className="flex-1 px-3 py-2 border border-border rounded-lg text-lg font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              autoFocus
+            />
+            <button
+              onClick={handleRename}
+              disabled={saving}
+              className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary-light transition-colors disabled:opacity-50"
+            >
+              {saving ? "Saving..." : "Save"}
+            </button>
+            <button
+              onClick={() => { setEditing(false); setNewName(document.file_name); }}
+              className="px-4 py-2 rounded-lg border border-border text-sm font-medium hover:bg-surface-alt transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold text-text flex-1">{document.file_name}</h1>
+            <button
+              onClick={() => setEditing(true)}
+              className="text-sm text-primary hover:text-primary-light font-medium"
+            >
+              Rename
+            </button>
+            <button
+              onClick={handleDelete}
+              className="text-sm text-risk-red hover:text-risk-red/80 font-medium"
+            >
+              Delete
+            </button>
+          </div>
+        )}
         <p className="text-text-muted">
           {document.doc_type?.replace("_", " ") || "Document"} •{" "}
           {document.hospital_name || "Unknown hospital"}

@@ -8,6 +8,7 @@ interface Document {
   id: string;
   file_name: string;
   file_type: string;
+  file_url: string;
   file_size_kb: number;
   doc_type: string | null;
   doc_date: string | null;
@@ -71,33 +72,56 @@ export default function DocumentsPage() {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchDocs = async () => {
-      const supabase = createClient();
-      if (!supabase) {
-        setLoading(false);
-        return;
-      }
-
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        setLoading(false);
-        return;
-      }
-
-      const { data } = await supabase
-        .from("documents")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
-
-      if (data) setDocuments(data as Document[]);
-      setLoading(false);
-    };
-
     fetchDocs();
   }, []);
+
+  const fetchDocs = async () => {
+    const supabase = createClient();
+    if (!supabase) {
+      setLoading(false);
+      return;
+    }
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    const { data } = await supabase
+      .from("documents")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+
+    if (data) setDocuments(data as Document[]);
+    setLoading(false);
+  };
+
+  const handleDelete = async (doc: Document) => {
+    if (!confirm(`Delete "${doc.file_name}"? This cannot be undone.`)) return;
+
+    setDeletingId(doc.id);
+    const supabase = createClient();
+    if (!supabase) return;
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    // Delete from storage
+    const fileExt = doc.file_name.split(".").pop();
+    const storagePath = `${user.id}/${doc.id}.${fileExt}`;
+    await supabase.storage.from("documents").remove([storagePath]);
+
+    // Delete from DB (cascading handles extractions)
+    await supabase.from("documents").delete().eq("id", doc.id);
+
+    setDocuments((prev) => prev.filter((d) => d.id !== doc.id));
+    setDeletingId(null);
+  };
 
   const filtered =
     filter === "all"
@@ -175,12 +199,14 @@ export default function DocumentsPage() {
       ) : (
         <div className="space-y-3">
           {filtered.map((doc) => (
-            <Link
+            <div
               key={doc.id}
-              href={`/app/documents/${doc.id}`}
-              className="block bg-white rounded-xl border border-border p-4 hover:shadow-md transition-shadow"
+              className="bg-white rounded-xl border border-border p-4 hover:shadow-md transition-shadow"
             >
-              <div className="flex items-center gap-4">
+              <Link
+                href={`/app/documents/${doc.id}`}
+                className="flex items-center gap-4"
+              >
                 <DocTypeIcon type={doc.doc_type} />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
@@ -200,11 +226,23 @@ export default function DocumentsPage() {
                     <span>{formatFileSize(doc.file_size_kb)}</span>
                   </div>
                 </div>
-                <span className="text-text-muted text-sm">
+                <span className="text-text-muted text-sm hidden sm:block">
                   {formatDate(doc.created_at)}
                 </span>
+              </Link>
+              <div className="flex justify-end mt-2 pt-2 border-t border-border/50">
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleDelete(doc);
+                  }}
+                  disabled={deletingId === doc.id}
+                  className="text-xs text-risk-red hover:text-risk-red/80 font-medium disabled:opacity-50"
+                >
+                  {deletingId === doc.id ? "Deleting..." : "Delete"}
+                </button>
               </div>
-            </Link>
+            </div>
           ))}
         </div>
       )}
