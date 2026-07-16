@@ -176,65 +176,106 @@ ALTER TABLE ai_conversations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE follow_ups ENABLE ROW LEVEL SECURITY;
 
 -- Profiles: users can read/update own profile
+DROP POLICY IF EXISTS "Users can view own profile" ON profiles;
+DROP POLICY IF EXISTS "Users can update own profile" ON profiles;
+DROP POLICY IF EXISTS "Users can insert own profile" ON profiles;
 CREATE POLICY "Users can view own profile" ON profiles FOR SELECT USING (auth.uid() = id);
 CREATE POLICY "Users can update own profile" ON profiles FOR UPDATE USING (auth.uid() = id);
 CREATE POLICY "Users can insert own profile" ON profiles FOR INSERT WITH CHECK (auth.uid() = id);
 
 -- Health Profiles
+DROP POLICY IF EXISTS "Users can view own health profile" ON health_profiles;
+DROP POLICY IF EXISTS "Users can update own health profile" ON health_profiles;
+DROP POLICY IF EXISTS "Users can insert own health profile" ON health_profiles;
 CREATE POLICY "Users can view own health profile" ON health_profiles FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can update own health profile" ON health_profiles FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Users can insert own health profile" ON health_profiles FOR INSERT WITH CHECK (auth.uid() = user_id);
 
 -- Chronic Conditions
+DROP POLICY IF EXISTS "Users can view own conditions" ON chronic_conditions;
+DROP POLICY IF EXISTS "Users can insert own conditions" ON chronic_conditions;
+DROP POLICY IF EXISTS "Users can update own conditions" ON chronic_conditions;
+DROP POLICY IF EXISTS "Users can delete own conditions" ON chronic_conditions;
 CREATE POLICY "Users can view own conditions" ON chronic_conditions FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can insert own conditions" ON chronic_conditions FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can update own conditions" ON chronic_conditions FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Users can delete own conditions" ON chronic_conditions FOR DELETE USING (auth.uid() = user_id);
 
 -- Current Medicines
+DROP POLICY IF EXISTS "Users can view own medicines" ON current_medicines;
+DROP POLICY IF EXISTS "Users can insert own medicines" ON current_medicines;
+DROP POLICY IF EXISTS "Users can update own medicines" ON current_medicines;
+DROP POLICY IF EXISTS "Users can delete own medicines" ON current_medicines;
 CREATE POLICY "Users can view own medicines" ON current_medicines FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can insert own medicines" ON current_medicines FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can update own medicines" ON current_medicines FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Users can delete own medicines" ON current_medicines FOR DELETE USING (auth.uid() = user_id);
 
 -- Surgeries
+DROP POLICY IF EXISTS "Users can view own surgeries" ON surgeries;
+DROP POLICY IF EXISTS "Users can insert own surgeries" ON surgeries;
+DROP POLICY IF EXISTS "Users can update own surgeries" ON surgeries;
+DROP POLICY IF EXISTS "Users can delete own surgeries" ON surgeries;
 CREATE POLICY "Users can view own surgeries" ON surgeries FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can insert own surgeries" ON surgeries FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can update own surgeries" ON surgeries FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Users can delete own surgeries" ON surgeries FOR DELETE USING (auth.uid() = user_id);
 
 -- Family History
+DROP POLICY IF EXISTS "Users can view own family history" ON family_history;
+DROP POLICY IF EXISTS "Users can insert own family history" ON family_history;
+DROP POLICY IF EXISTS "Users can update own family history" ON family_history;
+DROP POLICY IF EXISTS "Users can delete own family history" ON family_history;
 CREATE POLICY "Users can view own family history" ON family_history FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can insert own family history" ON family_history FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can update own family history" ON family_history FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Users can delete own family history" ON family_history FOR DELETE USING (auth.uid() = user_id);
 
 -- Documents
+DROP POLICY IF EXISTS "Users can view own documents" ON documents;
+DROP POLICY IF EXISTS "Users can insert own documents" ON documents;
+DROP POLICY IF EXISTS "Users can update own documents" ON documents;
+DROP POLICY IF EXISTS "Users can delete own documents" ON documents;
 CREATE POLICY "Users can view own documents" ON documents FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can insert own documents" ON documents FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can update own documents" ON documents FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Users can delete own documents" ON documents FOR DELETE USING (auth.uid() = user_id);
 
 -- Document Extractions
+DROP POLICY IF EXISTS "Users can view own extractions" ON document_extractions;
+DROP POLICY IF EXISTS "Users can insert own extractions" ON document_extractions;
 CREATE POLICY "Users can view own extractions" ON document_extractions FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can insert own extractions" ON document_extractions FOR INSERT WITH CHECK (auth.uid() = user_id);
 
 -- Health Metrics
+DROP POLICY IF EXISTS "Users can view own metrics" ON health_metrics;
+DROP POLICY IF EXISTS "Users can insert own metrics" ON health_metrics;
+DROP POLICY IF EXISTS "Users can update own metrics" ON health_metrics;
+DROP POLICY IF EXISTS "Users can delete own metrics" ON health_metrics;
 CREATE POLICY "Users can view own metrics" ON health_metrics FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can insert own metrics" ON health_metrics FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can update own metrics" ON health_metrics FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Users can delete own metrics" ON health_metrics FOR DELETE USING (auth.uid() = user_id);
 
 -- Timeline Events
+DROP POLICY IF EXISTS "Users can view own timeline" ON timeline_events;
+DROP POLICY IF EXISTS "Users can insert own timeline" ON timeline_events;
 CREATE POLICY "Users can view own timeline" ON timeline_events FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can insert own timeline" ON timeline_events FOR INSERT WITH CHECK (auth.uid() = user_id);
 
 -- AI Conversations
+DROP POLICY IF EXISTS "Users can view own conversations" ON ai_conversations;
+DROP POLICY IF EXISTS "Users can insert own conversations" ON ai_conversations;
+DROP POLICY IF EXISTS "Users can update own conversations" ON ai_conversations;
 CREATE POLICY "Users can view own conversations" ON ai_conversations FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can insert own conversations" ON ai_conversations FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can update own conversations" ON ai_conversations FOR UPDATE USING (auth.uid() = user_id);
 
 -- Follow-ups
+DROP POLICY IF EXISTS "Users can view own follow_ups" ON follow_ups;
+DROP POLICY IF EXISTS "Users can insert own follow_ups" ON follow_ups;
+DROP POLICY IF EXISTS "Users can update own follow_ups" ON follow_ups;
+DROP POLICY IF EXISTS "Users can delete own follow_ups" ON follow_ups;
 CREATE POLICY "Users can view own follow_ups" ON follow_ups FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can insert own follow_ups" ON follow_ups FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can update own follow_ups" ON follow_ups FOR UPDATE USING (auth.uid() = user_id);

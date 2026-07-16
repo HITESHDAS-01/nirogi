@@ -13,14 +13,19 @@ export async function processDocument(
 ) {
   const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-  const result = await model.generateContent([
-    systemPrompt,
-    {
-      inlineData: {
-        mimeType,
-        data: base64Data,
+  const result = await Promise.race([
+    model.generateContent([
+      systemPrompt,
+      {
+        inlineData: {
+          mimeType,
+          data: base64Data,
+        },
       },
-    },
+    ]),
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("Gemini timeout after 120s")), 120000)
+    ),
   ]);
 
   const response = result.response.text();

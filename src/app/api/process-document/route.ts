@@ -4,8 +4,12 @@ import { createClient } from "@/lib/supabase/server";
 import { getDocumentProcessingPrompt } from "@/lib/ai/system-prompt";
 
 export async function POST(request: Request) {
+  let document_id: string | undefined;
+
   try {
-    const { file_url, file_type, document_id } = await request.json();
+    const body = await request.json();
+    const { file_url, file_type } = body;
+    document_id = body.document_id;
 
     if (!isGeminiConfigured()) {
       return NextResponse.json(
@@ -111,6 +115,19 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error("Document processing error:", error);
+
+    // Update status to failed so document doesn't stay stuck in "processing"
+    if (document_id) {
+      try {
+        const supabase = await createClient();
+        if (supabase) {
+          await supabase.from("documents").update({
+            processing_status: "failed",
+          }).eq("id", document_id);
+        }
+      } catch {}
+    }
+
     return NextResponse.json(
       { error: "Failed to process document" },
       { status: 500 }
