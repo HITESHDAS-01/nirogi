@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
 const ACCEPTED_TYPES = [
   "application/pdf",
@@ -18,11 +19,13 @@ export default function UploadPage() {
   const [docDate, setDocDate] = useState("");
   const [hospital, setHospital] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [uploaded, setUploaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
   const handleFile = useCallback((f: File) => {
     setError(null);
+    setUploaded(false);
     if (!ACCEPTED_TYPES.includes(f.type)) {
       setError("Invalid file type. Please upload PDF, JPG, PNG, or HEIC.");
       return;
@@ -46,14 +49,73 @@ export default function UploadPage() {
 
   const handleUpload = async () => {
     if (!file) return;
+
+    const supabase = createClient();
+    if (!supabase) {
+      setError("Supabase not configured.");
+      return;
+    }
+
     setUploading(true);
     setError(null);
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      router.push("/app/documents");
-    } catch {
-      setError("Upload failed. Please try again.");
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setError("You must be logged in to upload.");
+        return;
+      }
+
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${Date.now()}.${fileExt}`;
+      const filePath = `${user.id}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("documents")
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from("documents")
+        .getPublicUrl(filePath);
+
+      const { data: docRecord, error: insertError } = await supabase
+        .from("documents")
+        .insert({
+          user_id: user.id,
+          file_url: urlData.publicUrl,
+          file_name: file.name,
+          file_type: file.type,
+          file_size_kb: Math.round(file.size / 1024),
+          doc_type: docType || null,
+          doc_date: docDate || null,
+          hospital_name: hospital || null,
+          processing_status: "pending",
+        })
+        .select("id")
+        .single();
+
+      if (insertError) throw insertError;
+
+      setUploaded(true);
+
+      fetch("/api/process-document", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          file_url: urlData.publicUrl,
+          file_type: file.type,
+          document_id: docRecord.id,
+        }),
+      }).catch(() => {});
+
+      setTimeout(() => {
+        router.push("/app/documents");
+      }, 1500);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Upload failed";
+      setError(msg);
     } finally {
       setUploading(false);
     }
@@ -78,11 +140,13 @@ export default function UploadPage() {
         className={`border-2 border-dashed rounded-xl p-12 text-center transition-colors cursor-pointer ${
           dragOver
             ? "border-primary bg-primary/5"
-            : file
+            : uploaded
               ? "border-risk-green bg-risk-green/5"
-              : "border-border hover:border-primary/50"
+              : file
+                ? "border-risk-green bg-risk-green/5"
+                : "border-border hover:border-primary/50"
         }`}
-        onClick={() => document.getElementById("file-input")?.click()}
+        onClick={() => !uploading && document.getElementById("file-input")?.click()}
       >
         <input
           id="file-input"
@@ -95,7 +159,15 @@ export default function UploadPage() {
           }}
         />
 
-        {file ? (
+        {uploaded ? (
+          <div>
+            <div className="text-4xl mb-3">✅</div>
+            <p className="font-medium text-risk-green">Uploaded successfully!</p>
+            <p className="text-sm text-text-muted mt-1">
+              Processing with AI in background...
+            </p>
+          </div>
+        ) : file ? (
           <div>
             <div className="text-4xl mb-3">✅</div>
             <p className="font-medium text-text">{file.name}</p>
@@ -106,6 +178,7 @@ export default function UploadPage() {
               onClick={(e) => {
                 e.stopPropagation();
                 setFile(null);
+                setUploaded(false);
               }}
               className="mt-3 text-sm text-risk-red font-medium hover:underline"
             >
@@ -125,7 +198,7 @@ export default function UploadPage() {
         )}
       </div>
 
-      {file && (
+      {file && !uploaded && (
         <div className="bg-white rounded-xl border border-border p-6 space-y-4">
           <h2 className="font-semibold text-text">Document Details</h2>
 
