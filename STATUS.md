@@ -12,9 +12,13 @@ Nirogi (निरोगी) = Free from illness. AI-powered personal health comp
 
 ---
 
-## ✅ What's Built
+## Progress: ~65% Complete
 
-### Foundation
+---
+
+## ✅ What's Built & Working
+
+### Foundation (100%)
 - [x] Next.js project setup (TypeScript, Tailwind, App Router)
 - [x] App shell — sidebar navigation + topbar (responsive, mobile hamburger)
 - [x] Color system — Medical green primary (#1A6B4A), risk colors, surfaces
@@ -23,88 +27,89 @@ Nirogi (निरोगी) = Free from illness. AI-powered personal health comp
 - [x] Middleware for protected routes
 - [x] Supabase client helpers (browser, server, middleware) — handles missing credentials gracefully
 
-### Auth
+### Auth (100%)
 - [x] Login page — Google OAuth + Email/Password
 - [x] Sign up / Sign in toggle
 - [x] OAuth callback route (`/auth/callback`)
 - [x] Warning banner when Supabase not configured
 - [x] Protected route middleware (redirects to login if not authenticated)
 
-### App Pages (28 routes total)
-- [x] `/` — Landing page (full SEO content: hero, problem, features, how it works, use cases, trust, languages, pricing, FAQ, CTA)
+### Database (100%)
+- [x] Supabase project created (`ozfxsatcmbvaqiscankh`)
+- [x] All 13 database tables created with SQL:
+  - profiles, health_profiles, chronic_conditions, current_medicines
+  - surgeries, family_history, documents, document_extractions
+  - health_metrics, timeline_events, ai_conversations, follow_ups
+- [x] RLS enabled on all tables with policies
+- [x] Auto-create profile trigger on signup
+- [x] `.env.local` with all credentials set
+
+### App Pages (28 routes — 100%)
+- [x] `/` — Landing page (full SEO content)
 - [x] `/auth/login` — Login / Signup
 - [x] `/auth/callback` — OAuth callback
-- [x] `/app/dashboard` — Health dashboard (widgets, quick actions)
-- [x] `/app/profile` — Basic info form (name, DOB, gender, language)
-- [x] `/app/profile/health` — Health data form (height, weight, blood group, allergies, emergency contact)
-- [x] `/app/profile/medical` — Medical history (conditions, medicines, surgeries, family history — dynamic add/remove)
+- [x] `/app/dashboard` — Health dashboard
+- [x] `/app/profile` — Basic info form (Supabase read/write)
+- [x] `/app/profile/health` — Health data form (Supabase read/write)
+- [x] `/app/profile/medical` — Medical history (dynamic add/remove, Supabase read/write)
 - [x] `/app/documents` — Document list with filter chips
-- [x] `/app/documents/upload` — Drag & drop + file validation (PDF, JPG, PNG, HEIC, 10MB limit)
+- [x] `/app/documents/upload` — Drag & drop upload UI
 - [x] `/app/documents/[id]` — Document detail placeholder
-- [x] `/app/chat` — AI health chat UI (WhatsApp-style bubbles, suggestion chips)
+- [x] `/app/chat` — AI health chat (WhatsApp-style, streaming, Supabase history)
 - [x] `/app/timeline` — Health timeline with filter chips
 - [x] `/app/search` — Full-text search page
 - [x] `/app/summary` — Health summary page
-- [x] `/app/emergency` — Emergency card (blood group, allergies, contacts, medicines)
-- [x] `/app/knowledge` — Medical knowledge base with categories
+- [x] `/app/emergency` — Emergency card (reads from Supabase profile)
+- [x] `/app/knowledge` — Medical knowledge base
 - [x] `/app/settings` — Language, notifications, account, about
 
-### SEO Pages
+### SEO Pages (100%)
 - [x] `/about` — Mission, values, commitment
 - [x] `/how-it-works` — 5-step guide + supported document types
 - [x] `/faq` — 24 questions across 6 categories
 - [x] `/privacy` — Full privacy policy (DPDP Act compliant)
 - [x] `/terms` — Full terms of service with medical disclaimer
 
-### API Routes
-- [x] `/api/process-document` — Skeleton (returns "not configured" without Gemini key)
-- [x] `/api/chat` — Skeleton (returns helpful message without Gemini key)
-- [x] `/api/explain` — Skeleton
-- [x] `/api/translate` — Skeleton
+### AI Integration (90%)
+- [x] `lib/gemini.ts` — Gemini 2.5 Flash helper (processDocument, chatWithAIStream)
+- [x] `lib/ai/system-prompt.ts` — Full Nirogi AI role system prompt
+  - Personality rules (warm, direct, non-preachy, memory-aware)
+  - Doctor referral rules (when to refer / when not to)
+  - Risk levels (GREEN / YELLOW / RED / EMERGENCY)
+  - Medicine safety rules (allergy, interaction, duplicate checks)
+  - `buildRecordsSummary()` — generates records summary from DB data
+  - `getNirogiSystemPrompt()` — personalized system prompt with user data
+  - `getDocumentProcessingPrompt()` — document extraction with safety checks
+- [x] `/api/chat` — Full implementation with Supabase user data + streaming
+- [x] `/api/process-document` — Full implementation with medicine safety system prompt
 
-### AI Integration
-- [x] `lib/gemini.ts` — Gemini 2.5 Flash helper (processDocument, chatWithAI functions)
+### Profile & Data (100%)
+- [x] `lib/profile-store.ts` — Supabase CRUD for all profile data
+- [x] Profile pages load/save from Supabase (not localStorage)
+- [x] Emergency card reads from Supabase (blood group, allergies, contact, medicines, conditions)
+- [x] Chat conversations saved to Supabase `ai_conversations` table
 
 ---
 
 ## 🔲 What's Remaining
-
-### Phase 1 — Database & Auth (HIGH PRIORITY)
-
-- [ ] Create Supabase project (free tier)
-- [ ] Create all 13 database tables with SQL:
-  - profiles, health_profiles, chronic_conditions, current_medicines
-  - surgeries, family_history, documents, document_extractions
-  - health_metrics, timeline_events, ai_conversations, follow_ups
-- [ ] Enable RLS on all tables with policies
-- [ ] Create Supabase Storage bucket (private, per-user folder)
-- [ ] Add real Supabase credentials to `.env.local`
-- [ ] Test login/signup flow end-to-end
-- [ ] Profile form → Supabase read/write
-- [ ] Onboarding flow (first-time user guided setup)
 
 ### Phase 2 — Document System (MEDIUM PRIORITY)
 
 - [ ] Connect upload page to Supabase Storage
 - [ ] Create document record in DB on upload
 - [ ] Document list page — fetch real data from DB
-- [ ] Document detail page — fetch + display
+- [ ] Document detail page — fetch + display extraction
 - [ ] Processing status UI (spinner → done → failed)
 - [ ] Error handling for failed uploads
 - [ ] Timeline auto-update on document upload
 
 ### Phase 3 — AI Processing (MEDIUM PRIORITY)
 
-- [ ] Add Gemini API key to `.env.local`
-- [ ] `/api/process-document` — Send document to Gemini Vision, parse JSON response
-- [ ] Save extraction to `document_extractions` table
 - [ ] Auto-populate `health_metrics` from extracted values
 - [ ] Auto-populate `follow_ups` if follow_up_date found
 - [ ] Auto-update `current_medicines` if new prescription
-- [ ] Document detail page — show AI explanation (risk badge, key findings table, simple language)
+- [ ] Document detail page — show AI explanation (risk badge, key findings table)
 - [ ] Language toggle for explanations (Hindi/Assamese)
-- [ ] `/api/chat` — Full implementation with user context injection
-- [ ] Conversation history (save to `ai_conversations`)
 - [ ] `/api/explain` — Generate explanation in requested language
 - [ ] `/api/translate` — Translate text
 
@@ -126,7 +131,6 @@ Nirogi (निरोगी) = Free from illness. AI-powered personal health comp
 - [ ] Wrap app with i18n provider
 - [ ] Translate all UI strings
 - [ ] Language selector in settings + onboarding
-- [ ] AI responses in user's language (prompt already handles this)
 
 ### Phase 6 — PWA & Offline (LOW PRIORITY)
 
@@ -178,34 +182,39 @@ src/
 │   │   ├── dashboard/page.tsx
 │   │   ├── profile/
 │   │   │   ├── layout.tsx      ← Profile tabs
-│   │   │   ├── page.tsx        ← Basic info
-│   │   │   ├── health/page.tsx
-│   │   │   └── medical/page.tsx
+│   │   │   ├── page.tsx        ← Basic info (Supabase)
+│   │   │   ├── health/page.tsx ← Health data (Supabase)
+│   │   │   └── medical/page.tsx← Medical history (Supabase)
 │   │   ├── documents/
 │   │   │   ├── page.tsx        ← Document list
 │   │   │   ├── upload/page.tsx ← Drag & drop upload
 │   │   │   └── [id]/page.tsx   ← Document detail
-│   │   ├── chat/page.tsx       ← AI Health Chat
+│   │   ├── chat/page.tsx       ← AI Health Chat (Supabase history)
 │   │   ├── timeline/page.tsx
 │   │   ├── search/page.tsx
 │   │   ├── summary/page.tsx
-│   │   ├── emergency/page.tsx  ← Emergency card
+│   │   ├── emergency/page.tsx  ← Emergency card (Supabase data)
 │   │   ├── knowledge/page.tsx
 │   │   └── settings/page.tsx
 │   └── api/
-│       ├── process-document/route.ts
-│       ├── chat/route.ts
+│       ├── process-document/route.ts ← Gemini Vision + medicine safety
+│       ├── chat/route.ts             ← Gemini chat + user context
 │       ├── explain/route.ts
 │       └── translate/route.ts
 ├── lib/
 │   ├── utils.ts                ← cn, formatDate, etc.
-│   ├── gemini.ts               ← Gemini AI helper
+│   ├── gemini.ts               ← Gemini AI (processDocument, chatWithAIStream)
+│   ├── profile-store.ts        ← Supabase CRUD for profile data
+│   ├── ai/
+│   │   └── system-prompt.ts    ← Nirogi AI role + system prompts
 │   └── supabase/
 │       ├── client.ts           ← Browser client
 │       ├── server.ts           ← Server client
 │       └── middleware.ts       ← Session refresh
-└── types/
-    └── index.ts                ← All 13 table types
+├── types/
+│   └── index.ts                ← All 13 table types
+└── supabase/
+    └── schema.sql              ← Full database schema (13 tables + RLS)
 ```
 
 ---
@@ -213,10 +222,10 @@ src/
 ## Environment Variables (.env.local)
 
 ```env
-NEXT_PUBLIC_SUPABASE_URL=          # Set after Supabase project creation
-NEXT_PUBLIC_SUPABASE_ANON_KEY=     # Set after Supabase project creation
-SUPABASE_SERVICE_ROLE_KEY=         # Set after Supabase project creation
-GEMINI_API_KEY=                    # Set after Gemini API setup
+NEXT_PUBLIC_SUPABASE_URL=https://ozfxsatcmbvaqiscankh.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=***SET***
+SUPABASE_SERVICE_ROLE_KEY=***SET***
+GEMINI_API_KEY=***SET***
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
@@ -230,3 +239,17 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 4. **Gemini 2.5 Flash** — Single AI model for all tasks (Vision + Chat + Multilingual)
 5. **Indian pricing** — ₹99/month or ₹799/year (Razorpay)
 6. **DPDP Act compliant** — Privacy policy and terms written for Indian data protection law
+7. **Supabase for all data** — Profile, medical history, chat conversations all in Supabase (not localStorage)
+8. **Nirogi AI Role** — Full system prompt with personality, doctor referral rules, medicine safety checks
+
+---
+
+## Recent Commits
+
+- `87ded3c` — feat: Nirogi AI role system prompt + Supabase chat history
+- `5beeebb` — feat: profile data now saves to Supabase (not localStorage)
+- `7d317cd` — feat: profile data persistence + emergency card reads from profile
+- `c4c050d` — feat: persist chat history in localStorage (now Supabase)
+- `eccd8a9` — feat: AI chat with Gemini streaming + Supabase schema
+- `951caa1` — fix: auth flow, error handling, cross-origin dev warning
+- `ab87e29` — feat: Nirogi v0.1 — AI health companion with 28 routes
