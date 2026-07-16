@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
+import Markdown from "react-markdown";
 
 interface Message {
   role: "user" | "assistant";
@@ -358,20 +359,22 @@ export default function ChatPage() {
               key={i}
               className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
             >
-              <div
-                className={`max-w-[80%] px-4 py-3 rounded-2xl text-sm whitespace-pre-wrap ${
-                  msg.role === "user"
-                    ? "bg-primary text-white rounded-br-md"
-                    : "bg-white border border-border text-text rounded-bl-md"
-                }`}
-              >
-                {msg.content}
-                {loading &&
-                  i === messages.length - 1 &&
-                  msg.role === "assistant" && (
-                    <span className="inline-block w-1.5 h-4 ml-0.5 bg-text-muted animate-pulse" />
-                  )}
-              </div>
+              {msg.role === "user" ? (
+                <div className="max-w-[80%] px-4 py-3 rounded-2xl rounded-br-md bg-primary text-white text-sm whitespace-pre-wrap">
+                  {msg.content}
+                </div>
+              ) : (
+                <div className="max-w-[80%] px-4 py-3 rounded-2xl rounded-bl-md bg-white border border-border text-sm">
+                  <div className="prose prose-sm max-w-none prose-p:my-1 prose-p:leading-relaxed prose-headings:my-2 prose-headings:font-semibold prose-headings:text-text prose-strong:text-text prose-strong:font-semibold prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-li:leading-relaxed prose-li:text-text prose-li:marker:text-primary prose-h3:text-base prose-h4:text-sm prose-blockquote:border-l-primary prose-blockquote:text-text-muted prose-blockquote:italic prose-code:bg-surface-alt prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-sm prose-code:font-normal prose-code:before:content-none prose-code:after:content-none">
+                    <Markdown>{msg.content}</Markdown>
+                  </div>
+                  {loading &&
+                    i === messages.length - 1 &&
+                    msg.role === "assistant" && (
+                      <span className="inline-block w-1.5 h-4 ml-0.5 bg-text-muted animate-pulse" />
+                    )}
+                </div>
+              )}
             </div>
           ))}
 
